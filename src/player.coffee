@@ -2,13 +2,12 @@ Player = (I) ->
   $.reverseMerge I,
     width: 32
     height: 32
-    x: 160
-    y: 160
+    x: 192
+    y: 128
     state: {}
     speed: 4
     items: {
     }
-    excludedModules: ["Movable"]
 
   I.sprite = Sprite.loadByName("player")
   walkSprites =
