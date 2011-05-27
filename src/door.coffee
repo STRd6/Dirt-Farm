@@ -8,18 +8,7 @@ Door = (I) ->
   self = GameObject(I)
 
   self.bind "step", ->
-    if I.cat
-      player = engine.find("Cat").first()
-
-      # Cat can't exit if mouse is about
-      return if engine.find("MousePlayer").first()
-    else if I.mouse
-      player = engine.find("MousePlayer").first()
-    else
-      player = engine.find("Player").first()
-
-      # Player can't exit if cat is about
-      return if engine.find("Cat").first()
+    player = engine.find("Player").first()
 
     if player && Collision.rectangular(self.bounds(), player.collisionBounds())
       engine.loadMap I.destination, ->
@@ -27,9 +16,6 @@ Door = (I) ->
 
         # Pretty hacky...
         engine.add player.I
-
-        if I.cat && player.I.playerData.location == I.destination
-          engine.add player.I.playerData
 
       if I.autoPosition
         if I.x == 0
