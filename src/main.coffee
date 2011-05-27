@@ -2,7 +2,7 @@ window.engine = Engine
   canvas: $("canvas").powerCanvas()
   includedModules: "Tilemap"
 
-engine.loadMap "house", ->
+engine.loadMap "farm", ->
   engine.add
     class: "Player"
     location: "start"
