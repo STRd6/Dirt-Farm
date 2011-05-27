@@ -1,0 +1,15 @@
+{
+  "author": "STRd6",
+  "name": "Dangerous",
+  "libs": {
+    "gamelib.js": "https://github.com/STRd6/gamelib/raw/pixie/gamelib.js"
+  },
+  "directories": {
+    "lib": "lib",
+    "source": "src",
+    "test": "test"
+  },
+  "width": 480,
+  "height": 320
+}
+
