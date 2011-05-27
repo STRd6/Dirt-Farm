@@ -1,5 +1,6 @@
 Player = (I) ->
   $.reverseMerge I,
+    collisionMargin: Point(2, 2)
     width: 32
     height: 32
     x: 192
@@ -21,12 +22,6 @@ Player = (I) ->
   pickupItem = null
 
   self = GameObject(I).extend
-    collisionBounds: (xOffset, yOffset) ->
-      x: I.x + (xOffset || 0) + collisionMargin.x
-      y: I.y + (yOffset || 0) + collisionMargin.y
-      width: I.width - 2 * collisionMargin.x
-      height: I.height - 2 * collisionMargin.y
-
     pickup: (item) ->
       I.state.pickup = 45
       pickupItem = item
@@ -43,10 +38,6 @@ Player = (I) ->
   walkCycle = 0
 
   facing = Point(0, 0)
-
-  collisionMargin =
-    x: 2
-    y: 2
 
   self.bind "draw", (canvas) ->
     if I.state.pickup && pickupItem
