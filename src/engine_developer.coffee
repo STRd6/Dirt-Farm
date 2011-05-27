@@ -25,17 +25,25 @@
         canvas.fillText("Shift+Left click to add boxes", 440, 43)
         canvas.fillText("Right click red boxes to edit properties", 440, 60)
 
+    self.bind "init", ->
+      window.updateObjectProperties = (newProperties) ->
+        if objectToUpdate
+          $.extend objectToUpdate, GameObject.construct(newProperties)
+
+      $(document).unbind ".#{namespace}"
+
+      $(document).bind "mousedown.#{namespace}", developerModeMousedown
+
+      for key, fn of developerHotkeys
+        $(document).bind "keydown.#{namespace}", key, (event) ->
+          event.preventDefault()
+          fn()
+
     return {}
 
   namespace = "engine_developer"
   developerMode = false
-
   objectToUpdate = null
-  window.updateObjectProperties = (newProperties) ->
-    if objectToUpdate
-      $.extend objectToUpdate, GameObject.construct(newProperties)
-
-  $(document).unbind ".#{namespace}"
 
   developerModeMousedown = (event) ->
     if developerMode
@@ -51,10 +59,7 @@
       else if event.which == 2 || keydown.shift
         window.developerAddObject?(event)
 
-  # Development Events
-  $(document).bind "mousedown.#{namespace}", window.developerModeMousedown
-
-  window.developerHotkeys =
+  developerHotkeys =
     esc: ->
       developerMode = !developerMode
 
@@ -68,11 +73,6 @@
       engine.loadState(Local.get("level"))
     f5: ->
       engine.reload()
-
-  for key, fn of window.developerHotkeys
-    $(document).bind "keydown.#{namespace}", key, (event) ->
-      event.preventDefault()
-      fn()
 
 )(jQuery)
 
