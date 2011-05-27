@@ -1,7 +1,6 @@
 window.engine = Engine 
   canvas: $("canvas").powerCanvas()
   includedModules: "Tilemap"
-  excludedModules: ["Developer"]
 
 engine.loadMap "house", ->
   engine.add
