@@ -7,8 +7,6 @@ Player = (I) ->
     state: {}
     speed: 4
     items: {
-      #kitten: true
-      #bomb: true
     }
     excludedModules: ["Movable"]
 
@@ -20,7 +18,6 @@ Player = (I) ->
     left: [Sprite.loadByName("walk_left0"), Sprite.loadByName("walk_left1")]
 
   pickupSprite = Sprite.loadByName("player_get")
-  bombCooldown = 0
 
   pickupItem = null
 
@@ -44,8 +41,6 @@ Player = (I) ->
           message: item.I.message
           y: 32
 
-      Sound.play "fanfare"
-
   walkCycle = 0
 
   facing = Point(0, 0)
@@ -59,15 +54,11 @@ Player = (I) ->
       pickupItem.I.sprite.draw(canvas, 8, -8)
 
   self.bind "step", ->
-    bombCooldown = bombCooldown.approach(0, 1)
-
     movement = Point(0, 0)
 
     if I.state.pickup
       I.state.pickup -= 1
       I.sprite = pickupSprite
-    else if I.state.cat
-
     else
       if keydown.left
         movement = movement.add(Point(-1, 0))
@@ -81,35 +72,6 @@ Player = (I) ->
       if keydown.down
         movement = movement.add(Point(0, 1))
         I.sprite = walkSprites.down.wrap((walkCycle/4).floor())
-
-      if I.items.bomb && keydown.return && !bombCooldown
-        bombCooldown += 90
-
-        target = facing.scale(32).add(self.center()).subtract(Point(8, 8))
-
-        engine.add
-          class: "Bomb"
-          x: target.x
-          y: target.y
-
-      if I.items.kitten && keydown.space
-        target = facing.scale(32).add(self.center()).subtract(Point(8, 8))
-
-        catBounds =
-          x: target.x
-          y: target.y
-          width: 16
-          height: 16
-
-        unless engine.collides catBounds
-          I.state.cat = true
-          I.items.kitten = false
-
-          engine.add
-            class: "Cat"
-            playerData: I
-            x: target.x
-            y: target.y
 
     if movement.equal(Point(0, 0))
       I.velocity = movement
