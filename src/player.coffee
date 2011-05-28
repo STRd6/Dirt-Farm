@@ -49,6 +49,22 @@ Player = (I) ->
     if I.state.pickup
       I.state.pickup -= 1
       I.sprite = pickupSprite
+    else if I.state.action
+      I.state.action = false
+
+      # Clear plants
+      engine.find("Plant").each (plant) ->
+        target = facing.scale(32).add(self.center()).subtract(Point(8, 8))
+
+        actionBounds =
+          x: target.x
+          y: target.y
+          width: 1
+          height: 1
+
+        if plant.collides(actionBounds)
+          plant.destroy()
+
     else
       if keydown.left
         movement = movement.add(Point(-1, 0))
@@ -62,6 +78,9 @@ Player = (I) ->
       if keydown.down
         movement = movement.add(Point(0, 1))
         I.sprite = walkSprites.down.wrap((walkCycle/4).floor())
+
+      if keydown.space
+        I.state.action = true
 
     if movement.equal(Point(0, 0))
       I.velocity = movement
