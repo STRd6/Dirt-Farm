@@ -1,14 +1,18 @@
 Player = (I) ->
   $.reverseMerge I,
     collisionMargin: Point(2, 2)
+    currentAction: "plant"
     width: 32
     height: 32
     x: 192
     y: 128
+    solid: true
     state: {}
     speed: 4
     items: {
     }
+
+  TILE_SIZE = 32
 
   I.sprite = Sprite.loadByName("player")
   walkSprites =
@@ -50,20 +54,32 @@ Player = (I) ->
       I.state.pickup -= 1
       I.sprite = pickupSprite
     else if I.state.action
+      target = facing.scale(32).add(self.center()).subtract(Point(8, 8))
+      actionBounds =
+        x: target.x
+        y: target.y
+        width: 1
+        height: 1
+
+      switch I.state.action
+        when "thresh"
+          engine.find("Plant").each (plant) ->
+            if plant.collides(actionBounds)
+              plant.destroy()
+        when "plant"
+          plantBounds = 
+            x: target.x.snap(TILE_SIZE)
+            y: target.y.snap(TILE_SIZE)
+            width: TILE_SIZE
+            height: TILE_SIZE
+
+          if !engine.collides(plantBounds)
+            engine.add $.extend(plantBounds,
+              class: "Plant"
+              type: "tomato"
+            )
+
       I.state.action = false
-
-      # Clear plants
-      engine.find("Plant").each (plant) ->
-        target = facing.scale(32).add(self.center()).subtract(Point(8, 8))
-
-        actionBounds =
-          x: target.x
-          y: target.y
-          width: 1
-          height: 1
-
-        if plant.collides(actionBounds)
-          plant.destroy()
 
     else
       if keydown.left
@@ -80,7 +96,7 @@ Player = (I) ->
         I.sprite = walkSprites.down.wrap((walkCycle/4).floor())
 
       if keydown.space
-        I.state.action = true
+        I.state.action = I.currentAction
 
     if movement.equal(Point(0, 0))
       I.velocity = movement
