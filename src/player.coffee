@@ -1,7 +1,7 @@
 Player = (I) ->
   $.reverseMerge I,
     collisionMargin: Point(2, 2)
-    currentAction: "plant"
+    currentAction: "hoe"
     width: 32
     height: 32
     x: 192
@@ -78,6 +78,13 @@ Player = (I) ->
               class: "Plant"
               type: "tomato"
             )
+        when "hoe"
+          engine.add
+            sprite: Sprite.loadByName("hoed")
+            x: target.x.snap(TILE_SIZE)
+            y: target.y.snap(TILE_SIZE)
+            width: TILE_SIZE
+            height: TILE_SIZE
 
       I.state.action = false
 
