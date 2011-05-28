@@ -4,6 +4,14 @@ Plant = (I) ->
     height: 32
     solid: true
 
+  loadSprites = (type) ->
+    [0..1].map (n) ->
+      Sprite.loadByName("#{type}_#{n}")
+
+  if I.type
+    sprites = loadSprites(I.type)
+    I.sprite = sprites.first()
+
   self = GameObject(I)
 
   self.bind "destroy", ->
