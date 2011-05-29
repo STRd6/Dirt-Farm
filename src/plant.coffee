@@ -21,6 +21,7 @@ Plant = (I) ->
       x: I.x
       y: I.y
       sprite: Sprite.loadByName("shrub_destroy")
+      zIndex: 1
 
   self
 
