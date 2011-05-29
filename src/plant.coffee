@@ -3,6 +3,7 @@ Plant = (I) ->
     width: 32
     height: 32
     solid: true
+    zIndex: 2
 
   loadSprites = (type) ->
     [0..1].map (n) ->
