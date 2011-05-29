@@ -1,7 +1,7 @@
 Player = (I) ->
   $.reverseMerge I,
     collisionMargin: Point(2, 2)
-    currentAction: "thresh"
+    activeItem: 0
     width: 32
     height: 32
     x: 192
@@ -55,7 +55,10 @@ Player = (I) ->
         canvas.withTransform Matrix.translation(i * (hudWidth + hudMargin) + screenPadding, screenPadding), (canvas) ->
           canvas.clearRect(0, 0, hudWidth, hudHeight)
 
-          color = "rgba(0, 255, 255, 0.25)"
+          if i == I.activeItem
+            color = "rgba(0, 255, 255, 0.25)"
+          else
+            color = "rgba(255, 255, 255, 0.25)"
 
           canvas.fillColor color
           canvas.fillRoundRect 0, 0, hudWidth, hudHeight
@@ -127,7 +130,10 @@ Player = (I) ->
         I.sprite = walkSprites.down.wrap((walkCycle/4).floor())
 
       if keydown.space
-        I.state.action = I.currentAction
+        I.state.action = I.items[I.activeItem]?.action
+
+      if keydown.c
+        I.activeItem = (I.activeItem + 1) % I.items.length
 
     if movement.equal(Point(0, 0))
       I.velocity = movement
