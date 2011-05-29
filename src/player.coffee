@@ -1,7 +1,7 @@
 Player = (I) ->
   $.reverseMerge I,
     collisionMargin: Point(2, 2)
-    currentAction: "hoe"
+    currentAction: "thresh"
     width: 32
     height: 32
     x: 192
