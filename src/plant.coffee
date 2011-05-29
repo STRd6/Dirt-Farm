@@ -15,6 +15,8 @@ Plant = (I) ->
   self = GameObject(I)
 
   self.bind "destroy", ->
+    Sound.play("thresh")
+
     engine.add
       x: I.x
       y: I.y
