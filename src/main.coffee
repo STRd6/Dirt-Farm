@@ -1,6 +1,7 @@
 window.engine = Engine 
   canvas: $("canvas").powerCanvas()
   includedModules: "Tilemap"
+  zSort: true
 
 engine.loadMap "house", ->
   engine.add
