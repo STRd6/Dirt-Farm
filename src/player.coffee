@@ -11,6 +11,7 @@ Player = (I) ->
     speed: 4
     items: {
     }
+    zIndex: 3
 
   TILE_SIZE = 32
 
@@ -85,6 +86,7 @@ Player = (I) ->
             y: target.y.snap(TILE_SIZE)
             width: TILE_SIZE
             height: TILE_SIZE
+            zIndex: 1
 
       I.state.action = false
 
