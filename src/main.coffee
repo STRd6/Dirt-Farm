@@ -20,4 +20,5 @@ window.leverTriggered = (name) ->
 parent.gameControlData =
   Movement: "Arrow Keys"
   "Action": "Spacebar"
+  "Change Item": "C"
 
