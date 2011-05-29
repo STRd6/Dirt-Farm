@@ -111,7 +111,7 @@ Player = (I) ->
             y: target.y.snap(TILE_SIZE)
             width: TILE_SIZE
             height: TILE_SIZE
-            zIndex: 1
+            zIndex: 0
 
       I.state.action = false
 
