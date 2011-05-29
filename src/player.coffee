@@ -9,11 +9,13 @@ Player = (I) ->
     solid: true
     state: {}
     speed: 4
-    items: [
-      name: "scyth"
+    items: [{
       action: "thresh"
       sprite: Sprite.loadByName("scyth")
-    ]
+    }, {
+      action: "hoe"
+      sprite: Sprite.loadByName("hoe")
+    }]
     zIndex: 3
 
   TILE_SIZE = 32
