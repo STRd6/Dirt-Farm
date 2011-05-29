@@ -9,8 +9,11 @@ Player = (I) ->
     solid: true
     state: {}
     speed: 4
-    items: {
-    }
+    items: [
+      name: "scyth"
+      action: "thresh"
+      sprite: Sprite.loadByName("scyth")
+    ]
     zIndex: 3
 
   TILE_SIZE = 32
@@ -39,6 +42,23 @@ Player = (I) ->
           duration: 150
           message: item.I.message
           y: 32
+
+    drawHUD: (canvas) ->
+      screenPadding = 8
+      hudWidth = 32
+      hudHeight = 32
+      hudMargin = 8
+
+      I.items.each (item, i) ->
+        canvas.withTransform Matrix.translation(i * (hudWidth + hudMargin) + screenPadding, screenPadding), (canvas) ->
+          canvas.clearRect(0, 0, hudWidth, hudHeight)
+
+          color = "rgba(0, 255, 255, 0.25)"
+
+          canvas.fillColor color
+          canvas.fillRoundRect 0, 0, hudWidth, hudHeight
+          item.sprite.draw(canvas, 0, 0)
+
 
   walkCycle = 0
 
