@@ -1,3 +1,28 @@
+BASE_URL = "/production/projects/146";
+var App;
+App = {
+  "name": "Dirt Farm",
+  "directories": {
+    "data": "data",
+    "entities": "entities",
+    "lib": "lib",
+    "images": "images",
+    "sounds": "sounds",
+    "test": "test",
+    "source": "src",
+    "tilemaps": "tilemaps"
+  },
+  "hotSwap": true,
+  "wrapMain": true,
+  "library": false,
+  "height": 320,
+  "main": "main",
+  "width": 480,
+  "author": "STRd6",
+  "libs": {
+    "gamelib.js": "https://github.com/STRd6/gamelib/raw/pixie/gamelib.js"
+  }
+};;
 /*
 * Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
 *
@@ -16226,7 +16251,8 @@ Drawable = function(I, self) {
   I || (I = {});
   $.reverseMerge(I, {
     color: "#196",
-    spriteName: null
+    spriteName: null,
+    zIndex: 0
   });
   if (I.spriteName) {
     I.sprite = Sprite(I.spriteName, function(sprite) {
@@ -16361,7 +16387,8 @@ Emitterable = function(I, self) {
     excludedModules: [],
     includedModules: [],
     paused: false,
-    showFPS: false
+    showFPS: false,
+    zSort: false
   };
   /**
   The Engine controls the game world and manages game state. Once you 
@@ -16470,11 +16497,19 @@ Emitterable = function(I, self) {
     };
     draw = function() {
       canvas.withTransform(I.cameraTransform, function(canvas) {
+        var drawObjects;
         if (I.backgroundColor) {
           canvas.fill(I.backgroundColor);
         }
         self.trigger("preDraw", canvas);
-        return I.objects.invoke("draw", canvas);
+        if (I.zSort) {
+          drawObjects = I.objects.copy().sort(function(a, b) {
+            return a.I.zIndex - b.I.zIndex;
+          });
+        } else {
+          drawObjects = I.objects;
+        }
+        return drawObjects.invoke("draw", canvas);
       });
       return self.trigger("draw", canvas);
     };
@@ -17871,35 +17906,60 @@ Item = function(I) {
 };;
 var Plant;
 Plant = function(I) {
-  var self;
+  var loadSprites, self, sprites;
   $.reverseMerge(I, {
     width: 32,
     height: 32,
-    solid: true
+    solid: true,
+    zIndex: 2
   });
+  loadSprites = function(type) {
+    return [0, 1].map(function(n) {
+      return Sprite.loadByName("" + type + "_" + n);
+    });
+  };
+  if (I.type) {
+    sprites = loadSprites(I.type);
+    I.sprite = sprites.first();
+  }
   self = GameObject(I);
   self.bind("destroy", function() {
+    Sound.play("thresh");
     return engine.add({
       x: I.x,
       y: I.y,
-      sprite: Sprite.loadByName("shrub_destroy")
+      sprite: Sprite.loadByName("shrub_destroy"),
+      zIndex: 1
     });
   });
   return self;
 };;
 var Player;
 Player = function(I) {
-  var facing, pickupItem, pickupSprite, self, walkCycle, walkSprites;
+  var TILE_SIZE, facing, pickupItem, pickupSprite, self, walkCycle, walkSprites;
   $.reverseMerge(I, {
     collisionMargin: Point(2, 2),
+    activeItem: 0,
+    lastToggled: -10,
     width: 32,
     height: 32,
     x: 192,
     y: 128,
+    solid: true,
     state: {},
     speed: 4,
-    items: {}
+    items: [
+      {
+        action: "thresh",
+        sprite: Sprite.loadByName("scyth")
+      }, {
+        action: "hoe",
+        sprite: Sprite.loadByName("hoe")
+      }
+    ],
+    zIndex: 3
   });
+  TILE_SIZE = 32;
   I.sprite = Sprite.loadByName("player");
   walkSprites = {
     up: [Sprite.loadByName("walk_up0"), Sprite.loadByName("walk_up1")],
@@ -17922,6 +17982,27 @@ Player = function(I) {
           y: 32
         });
       }
+    },
+    drawHUD: function(canvas) {
+      var hudHeight, hudMargin, hudWidth, screenPadding;
+      screenPadding = 8;
+      hudWidth = 32;
+      hudHeight = 32;
+      hudMargin = 8;
+      return I.items.each(function(item, i) {
+        return canvas.withTransform(Matrix.translation(i * (hudWidth + hudMargin) + screenPadding, screenPadding), function(canvas) {
+          var color;
+          canvas.clearRect(0, 0, hudWidth, hudHeight);
+          if (i === I.activeItem) {
+            color = "rgba(0, 255, 255, 0.25)";
+          } else {
+            color = "rgba(255, 255, 255, 0.25)";
+          }
+          canvas.fillColor(color);
+          canvas.fillRoundRect(0, 0, hudWidth, hudHeight);
+          return item.sprite.draw(canvas, 0, 0);
+        });
+      });
     }
   });
   walkCycle = 0;
@@ -17932,26 +18013,52 @@ Player = function(I) {
     }
   });
   self.bind("step", function() {
-    var movement;
+    var actionBounds, movement, plantBounds, target, _ref;
     movement = Point(0, 0);
     if (I.state.pickup) {
       I.state.pickup -= 1;
       I.sprite = pickupSprite;
     } else if (I.state.action) {
+      target = facing.scale(32).add(self.center()).subtract(Point(8, 8));
+      actionBounds = {
+        x: target.x,
+        y: target.y,
+        width: 1,
+        height: 1
+      };
+      switch (I.state.action) {
+        case "thresh":
+          engine.find("Plant").each(function(plant) {
+            if (plant.collides(actionBounds)) {
+              return plant.destroy();
+            }
+          });
+          break;
+        case "plant":
+          plantBounds = {
+            x: target.x.snap(TILE_SIZE),
+            y: target.y.snap(TILE_SIZE),
+            width: TILE_SIZE,
+            height: TILE_SIZE
+          };
+          if (!engine.collides(plantBounds)) {
+            engine.add($.extend(plantBounds, {
+              "class": "Plant",
+              type: "tomato"
+            }));
+          }
+          break;
+        case "hoe":
+          engine.add({
+            sprite: Sprite.loadByName("hoed"),
+            x: target.x.snap(TILE_SIZE),
+            y: target.y.snap(TILE_SIZE),
+            width: TILE_SIZE,
+            height: TILE_SIZE,
+            zIndex: 0
+          });
+      }
       I.state.action = false;
-      engine.find("Plant").each(function(plant) {
-        var actionBounds, target;
-        target = facing.scale(32).add(self.center()).subtract(Point(8, 8));
-        actionBounds = {
-          x: target.x,
-          y: target.y,
-          width: 1,
-          height: 1
-        };
-        if (plant.collides(actionBounds)) {
-          return plant.destroy();
-        }
-      });
     } else {
       if (keydown.left) {
         movement = movement.add(Point(-1, 0));
@@ -17970,7 +18077,13 @@ Player = function(I) {
         I.sprite = walkSprites.down.wrap((walkCycle / 4).floor());
       }
       if (keydown.space) {
-        I.state.action = true;
+        I.state.action = (_ref = I.items[I.activeItem]) != null ? _ref.action : void 0;
+      }
+      if (keydown.c) {
+        if (I.age - I.lastToggled >= 10) {
+          I.activeItem = (I.activeItem + 1) % I.items.length;
+          I.lastToggled = I.age;
+        }
       }
     }
     if (movement.equal(Point(0, 0))) {
@@ -18087,10 +18200,133 @@ Wall = function(I) {
   }
   return GameObject(I);
 };;
+App.entities = {
+  "05C93842E9AC12D52D2E148745C82F11": {
+    "name": "bed",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAApElEQVRYR2NkGGDAOMD2M4w6YDQERkNgNATgIfD34YT/zPIFdA8RsIV3D9X9V5AXAheK9HbEqANGQwAjBFjD1ehaQ486ADMEUoMZGD5dZmDg00WNCnLF0PWh8bE7gI6pAL8DyPU1yAMEfA6TH6QhQAefw2J58IUAHdMf2CqMEBhQBzx4+I7e9qOGAMgBynZNdG0VoUTBgDkAFO4D2iake8QjWQgA8cV/4JXPkp0AAAAASUVORK5CYII=",
+    "class": "Wall",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "1B32DD0764B362C7916BBB1DB4FCB14D": {
+    "name": "door event",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAM0lEQVRYR+3QQREAAAQAQVpqI51I/mL47CW42azZjsfSAAECBAgQIECAAAECBAgQIPAtcD2lUkGDYVWCAAAAAElFTkSuQmCC",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": "",
+    "class": "Door"
+  },
+  "28A4EB6CA280153753913266D6D7C504": {
+    "name": "table",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABHElEQVRYR+2W4Q3CIBCFIQ6iU5iYuIZ7dJTu4RomJk5RBzE1r8kZCicHB9iYwM9Ced/dPTis2XjYjfVNB/jPDNyuw3w6Hsz9MZnzZSwKIutnEnaNCwgMLUgSgBsxxBC9P7QgUQAuYgiTWA0QFiAl4logKwBNxKUgC0CNiLUgNuZsrsaSkDTvm5UFIIfHzCYJSfN0h3xK8O14SRuVzAPiZx7gQAMALNrth6UsrTNCV/kqAwRAHmgJEniAHI8M+NdsbRCIQw9a0Qy0AEHToqOfDaAtjd+2iwFyQLg2HQBgw9dznLn6B32X+eB7RHqosAApQrE1BIE10uOkGUDsJLnwACDIpBdRSnbcppZTyg7QM1AtA9q7pCpAymnx17wBOuMryjTuIcUAAAAASUVORK5CYII=",
+    "class": "Wall",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "465097ED4706B9A37FE7C6A85137B961": {
+    "name": "wood_floor",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAuklEQVRYR9XV3Q2AIAwEYBjKFVzC+VzCFRxKIZHEGH969Q6CCW8oH7ScMYSwpdHsidM4UAHzsob0TfOG6IC8MoKQABCEDGBFSAEWhBzwhagCeEPELnIAuVbmADgmmkugQpgBX82E7rzMhwAKBAxgI1wAJsINYCH6yAFvh5f33q7wrxIgsCdENcBTz1QF3CGqA66IJoAzohmgIPrIAdWvOJ+CuQQqhBnAyv5reEEABQIGsBEuABPhBrAQO61qipPS+AxuAAAAAElFTkSuQmCC"
+  },
+  "6009C405FB26D312F3F4852468BD4F67": {
+    "name": "tree",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABfUlEQVRYR2NkGGDASK79Fs1q/0F6T9TeItsMkH6iNdeuLfq/+9oWot1LrMOIcgDMtyDblUXVGO6+vsXgquUDdgzIUSA2NpqYECLoAGyWIwcDzHJksahDXxiW2fHAhfCFBl4HIFuOzwJQqIAAKGRAlruf+8aw04iL4XVGBDhkyHIAuuUwnyJbAPIlLEpgNMgh6CGALyqwhgAun8NCAZsFMDn0KIE5DFco4HQAskHIvkPPBsjBD5ODicGiheQQAGkgFArE5keyQgCbA/AFO3Lwi85YgZIDYHIkRQG6A9ATHnL0ILPRcwCsnCArCrA5Ajlv44oCXCFFcgjALMCVFrAlTGyFEqHSkGBJSGmCJFQnEOUAUh1xvOYmAyMQEJNTiFKEbhAsWgS3ssCltp+4RpZZZGkC2eppoQVuD4CAEB83w9Jdp8kyiyxNIEuj3UzhDgDxRx0wGgKjITAaAnQNAfRCCFYikuMIkktCXJaT64ih5wBiqlhS1JAcAqQYToxaAFyK8CHng9N5AAAAAElFTkSuQmCC"
+  },
+  "6DA41199C4BD71E54E9BE447360D2FB9": {
+    "name": "Shrub",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC60lEQVRYR8WXO2sVURSFJ2UQJHArSXwhREhstBIfcAW7gJAqXRDLIP6DVP4FsZZ0VoKQTjDgAyttVFCQRIlY3SagKSPrwDes2XPmdVPkNHfOY85ae52195w7U5xwmzku/vXHi0e+x4fN74P2HLTYgQBeWVqtxLD99UUxhMRUBBz8z9+9ksCZUxeKYxPQ5tfOXy0+/vxU8OsRdYHvv54kQvfu302/IiWS2i+nTEUBbS5JLy0sV2T9sf+ljIw1RC4ANUUucAdmE9bmSNSOYGNrLZnq1uWVQsCQ0TORaF7qILn6gENIY348vRSAMccQSWj+7bftJCfNJQfcI2ZdkzEbTRhJjEbzaa+52blE4uWzVyUJye7gIggxLVq4M0prpdrT9ecVzEpn6cHZo9MXZ9Pig93DQs96CSUUmZ5FQC2S0JiDC9jTNJchNQVEQhsJXCTUxuMb6dcNJ2KQIEL1Fbn6eATltt486c4CNIUEfZRoIhGjjuCff72rSc/etTTUBIZxIhwNkRO9zt9NyfyVczeLyeR3aw3QHiUBTMc5YprcuVKgkJto/B3GINeaBYA35bCTcjCeIeIp6ceCSp2VUBsiu4xHGZXbZSwHcuNFItGMrkYkkfWA3H+w968EpbwSFS5HGfcFkmtMPsi1jfGjErfVA17b4zHgdI3HkosXIKAsiI2ClAi4ASOQk+hyO5nhlS/nH6+IiQAfoOhYiHkk8RjiHJGSKfSprFkP8I2P333PackYazzeEAmf17iPtd2QyiOIi2L0KqXxA+NlN2fQPiSyX8McuEvr7ndfeDqijnugVx3oAicqbcxzrBPUAU9fjXUS8Gxw+XJpxZ3R18kzkIkm7H0hafsmePROQP5QW7/9sDRjLE6DCHjR0ItOamfnfbofeMXjWQTURIhKSHb0OgKAY1r6Vd1vSgKmjwJcPHJe6vRArV7agDb0e4LfmPSMUrn/EE3Ra3yqf0Z6kfvjkL9huQCnJtCm1pC5EyfwH6lRij9KonSSAAAAAElFTkSuQmCC",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": "",
+    "class": "Plant"
+  },
+  "76C0A09C0A26D4408198EF4484A73075": {
+    "name": "fire",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAB90lEQVRYR62XO04EMRBEdxO+EhIBByLkDByBjIOQcQTOQMiBCJCQ+Cag1tKjmnKV3V4xye6O7a7X1W3P7HbzD9fz4dnPxdfrdp9QclEEzGAcmMfU3LyHax1kA4ABA4KD9LLMuQiQwi6pFQCLzwCEuILHzJUzXYBR9ijK2TN8/J4GwCCuNGw3l0iBYdzGAZeJs7fS+emUckyWQNWzIqTmTDuwr5Bb55JJsOEumAU6vfvevN0eLMumALBTOVAFJNbEhQA9Z2JscQAPjAyEwTh4AiIoQ7skcHuvAEIQxRkgM0MY/q7muK25ciDtD7r3+6PlWRABVfYODsXQJZzfdSBdQGElplzg+nN5FIQtgcrcwbHFqgnV7miaUPWAyirvcb+4plVNbc8BFbQSWG03LuN0CZwjlTNBucQH1LAEvKWqwjjP9VJTAncQVUWPry43H49PdrrKXp4DGcH1AiqkaHzmNQvRfRg5CM4WAQIkIJQj6YI8iGIhv3QogBTDTPEeusJuBAC/ZUsHepm7ImfWPJ4Q5R7o1Z5rzdZjH7BTZQC3953YaJdgGaZ6AJ2oiI9KkKAnN5+rsst/RlwGC3B+vYv78rD7jN/5/U+RHeg2YVLi+0DeayBSHGvQEY9pnH1zEGEsBRHjC8gAoLIFuwAxOIQQHehOQpV9LP8Fxxb0MGXNZGgAAAAASUVORK5CYII=",
+    "class": "Wall",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "77DACED5B91EBA6A164AAC79138E8E83": {
+    "name": "bed_right",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAALEwAACxMBAJqcGAAAAAd0SU1FB9sFAQY5CMCj12MAAACOSURBVFjDY2AYBaNgFIyCUTAA4O/DCf9hbKaBsvzuobr/A+IAdDDqgAF3AAuTxbb/9LXy1mgUoEYBA58ugvfpMgNJfLLE8EUBuiZCfErF4A74dBnTtfj4lIphOGAAfI49CgYgJAY8DbD8nr12hJcDDx6+o7ulCvJCCAco2zUx0tNyWENk0ETBgLcJBxwAALSKQBf3wKgxAAAAAElFTkSuQmCC",
+    "class": "Wall",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "9EC953B2E61BC1159FF9BE490CBE8721": {
+    "name": "dirt",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACj0lEQVRYR61XsUoDQRS8KxNEg4WNINhoJVjYmL/xX/wGWys/wMIPsLCzC4IRQRBsLCSKJOXp7DHn3Mu+3T3wCk3u3r03O2/e7KaeXU+b6vf6+sbf9lp8hlvV3m79d9N8Gk0Oq9Vi7j6PPUCNzY3+k/r59qxhIgSg+GSrLWyDCdLeZ0oLyotHHC7UrclAbin3s2V1cjTumHp6WVY726M1pl7fWvbeP1bhubcYgggA+BKDCcZbqQVb0g4vJsoAAGEFB/vjXiuUOgVRAsBj2G0BQFCELMy+4T9ZY2KwB8Z4n+/iu7bBCjGIUBPntMDidkIUMGPAIi7VAkSOd6mpKAMpSoeOK4GxrQRDfa0BYIESLyhhKxWDhQYAnH8EDzUfFSZpLQWGuvXl+XGD+dYr5lilSRHnvR8zpqwRWVXnktNJ2WM7uhZEZ0TWhKhWCyDGBEeNuvHcT8cXrcZ79c3FaRhDHZmUDhSALVyaQ+261wKKyJqMB0gB0Pt1D1ArT1qxZ7FDPV89onQfyYpwiPqHxIJtXEEDoE1HUZWeYkdbpsKj69GGrb9oOzoR6qaCz7Z/84fHsKnYMYuJ0r6fYqa+u5o2LOadYNTPc25pi+V0EZzQ7vs6r0yo22uMUsbhmKXeYTchZSdYsR5KS5U7RGy52H+fAm9DshbO7z0GYuLDPT01xwTmmYweUjx9dVOAHsdQkkKqX/0+1TJ1U3VS3foxVT0AMQWzoAoPSXAs1zlXsap32AMO/YJ5u93QMqBKVvpU1XZCdAEpA9N8rghzv4Jy6i593h3JbD+1h7rNplbtFU0tZg1AStGeC6ZO0RhLPZYjB3/WYWFBhLmDaGxlsV/GJW2z1uwey0s2FE2m46qAvcVRpD9TBP2NZki/CgAAAABJRU5ErkJggg==",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "CEC9BB9271BB3CDF4C3EFA4C675938E7": {
+    "name": "brick_red",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAApklEQVRYR2MsYWb/zzCAgHHQOMAvPJyu4bBp5UqwffAQsBQTYxB1dKS5I66/eMagKSHFgNUBNLcdaAHMk6MOGA2B0RAYDYHREBgNgdEQGA2BwRcCoNYQqFlGazB4W0QDHgL2OjoMV69eZVAVFaVpLOCMggEPAXokQJAniQ6B269f0yQ6cDoAlAYOXrkCzorHX71iQOdTM4RAjsAoiGia8vAYPuC9YwB+XJjBwEHLkAAAAABJRU5ErkJggg==",
+    "class": "Wall",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "D658C8CF4E386A3E0F27F24E32D35DFA": {
+    "name": "black",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAMUlEQVRYR+3QwQ0AAAgCMdh/aHULPyW5P2mTzPW2OkCAAAECBAgQIECAAAECBAh8CyywJyABJlvz9gAAAABJRU5ErkJggg==",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  },
+  "A6C08D77A65E90A2EC392A19988AE2D4": {
+    "name": "New Tile 1",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAxElEQVRYR2NkGGDAOMD2M2A44Pr+qv+0dJSmYxuKnSgckOVqSmK0tJ/h1r1XDMiOINsBzPIFYIf+fTiBJAdT7ACYxei2EusQihyAy3KYY4hxBNkOIGQ5sY4gywHEWk6MI0h2AMhyUNAS6wiYWlzRQbIDYL4ixQH4ssWoA4ZuCJBU3OFRjDcEQPoGtDIixpfoFRa6j4gxA1kNye2BUQeMhsBoCIyGwICHAHpxjd7Op3lJSKoFhNSTXBQTMpBU+VEHDHgIAABtscoh8u2yJgAAAABJRU5ErkJggg=="
+  },
+  "undefined": {
+    "name": "House Sign",
+    "tileSrc": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAxElEQVRYR2NkGGDAOMD2M2A44Pr+qv+0dJSmYxuKnSgckOVqSmK0tJ/h1r1XDMiOINsBzPIFYIf+fTiBJAdT7ACYxei2EusQihyAy3KYY4hxBNkOIGQ5sY4gywHEWk6MI0h2AMhyUNAS6wiYWlzRQbIDYL4ixQH4ssWoA4ZuCJBU3OFRjDcEQPoGtDIixpfoFRa6j4gxA1kNye2BUQeMhsBoCIyGwICHAHpxjd7Op3lJSKoFhNSTXBQTMpBU+VEHDHgIAABtscoh8u2yJgAAAABJRU5ErkJggg==",
+    "class": "Wall",
+    "createCoffee": "",
+    "create": "",
+    "destroyCoffee": "",
+    "destroy": "",
+    "stepCoffee": "",
+    "step": ""
+  }
+};;
 ;$(function(){ var leversTriggered;
 window.engine = Engine({
   canvas: $("canvas").powerCanvas(),
-  includedModules: "Tilemap"
+  includedModules: "Tilemap",
+  zSort: true
 });
 engine.loadMap("house", function() {
   return engine.add({
@@ -18108,5 +18344,6 @@ window.leverTriggered = function(name) {
 };
 parent.gameControlData = {
   Movement: "Arrow Keys",
-  "Action": "Spacebar"
+  "Action": "Spacebar",
+  "Change Item": "C"
 }; });
