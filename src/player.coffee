@@ -2,6 +2,7 @@ Player = (I) ->
   $.reverseMerge I,
     collisionMargin: Point(2, 2)
     activeItem: 0
+    lastToggled: -10
     width: 32
     height: 32
     x: 192
@@ -133,7 +134,9 @@ Player = (I) ->
         I.state.action = I.items[I.activeItem]?.action
 
       if keydown.c
-        I.activeItem = (I.activeItem + 1) % I.items.length
+        if I.age - I.lastToggled >= 10
+          I.activeItem = (I.activeItem + 1) % I.items.length
+          I.lastToggled = I.age
 
     if movement.equal(Point(0, 0))
       I.velocity = movement
