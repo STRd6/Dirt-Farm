@@ -1,76 +1,64 @@
-`
-var Sound = (function($) {
-  // TODO: detecting audio with canPlay is f***ed
-  // Hopefully get more robust later
-  // audio.canPlayType("audio/ogg") === "maybe" WTF?
-  // http://ajaxian.com/archives/the-doctor-subscribes-html-5-audio-cross-browser-support
-  var format = ".wav";
-  var soundPath = BASE_URL + "/sounds/";
-  var sounds = {};
+(($) ->
+  # TODO: detecting audio with canPlay is f***ed
+  # Hopefully get more robust later
+  # audio.canPlayType("audio/ogg") === "maybe" WTF?
+  # http://ajaxian.com/archives/the-doctor-subscribes-html-5-audio-cross-browser-support
 
-  function loadSoundChannel(name) {
-    var sound = $('<audio />').get(0);
-    sound.autobuffer = true;
-    sound.preload = 'auto';
-    sound.src = soundPath + name + format;
+  directory = App?.directories?.sounds || "sounds"
+  format = "wav"
+  sounds = {}
 
-    return sound;
-  }
+  loadSoundChannel = (name) ->
+    url = "#{BASE_URL}/#{directory}/#{name}.#{format}"
 
-  function Sound(id, maxChannels) {
-    return {
-      play: function() {
-        Sound.play(id, maxChannels);
-      },
+    sound = $('<audio />',
+      autobuffer: true
+      preload: 'auto'
+      src: url
+    ).get(0)
 
-      stop: function() {
-        Sound.stop(id);
-      }
-    }
-  }
+  Sound = (id, maxChannels) ->
+    play: ->
+      Sound.play(id, maxChannels)
 
-  return $.extend(Sound, {
-    play: function(id, maxChannels) {
-      // TODO: Too many channels crash Chrome!!!1
-      maxChannels = maxChannels || 4;
+    stop: ->
+      Sound.stop(id)
 
-      if(!sounds[id]) {
-        sounds[id] = [loadSoundChannel(id)];
-      }
+  $.extend Sound,
+    play: (id, maxChannels) ->
+      # TODO: Too many channels crash Chrome!!!1
+      maxChannels ||= 4
 
-      var freeChannels = $.grep(sounds[id], function(sound) {
-        return sound.currentTime == sound.duration || sound.currentTime == 0
-      });
+      unless sounds[id]
+        sounds[id] = [loadSoundChannel(id)]
 
-      if(freeChannels[0]) {
-        try {
-          freeChannels[0].currentTime = 0;
-        } catch(e) {
-        }
-        freeChannels[0].play();
-      } else {
-        if(!maxChannels || sounds[id].length < maxChannels) {
-          var sound = loadSoundChannel(id);
-          sounds[id].push(sound);
-          sound.play();
-        }
-      }
-    },
+      channels = sounds[id]
 
-    playFromUrl: function(url) {
-      var sound = $('<audio />').get(0);
-      sound.src = url;
+      freeChannels = $.grep channels, (sound) ->
+        sound.currentTime == sound.duration || sound.currentTime == 0
 
-      sound.play();
+      if channel = freeChannels.first()
+        try
+          channel.currentTime = 0
 
-      return sound;
-    },
+        channel.play()
+      else
+        if !maxChannels || channels.length < maxChannels
+          sound = loadSoundChannel(id)
+          channels.push(sound)
+          sound.play()
 
-    stop: function(id) {
-      if(sounds[id]) {
-        sounds[id].stop();
-      }
-    }
-  });
-}(jQuery));
-`
+    playFromUrl: (url) ->
+      sound = $('<audio />').get(0)
+      sound.src = url
+
+      sound.play()
+
+      return sound
+
+    stop: (id) ->
+      sounds[id]?.stop()
+
+    window.Sound = Sound
+)(jQuery)
+
